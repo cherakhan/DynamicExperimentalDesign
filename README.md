@@ -1,0 +1,2 @@
+# DynamicExperimentalDesign
+Optimal dynamic experiments
