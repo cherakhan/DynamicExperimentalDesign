@@ -71,10 +71,13 @@ function objective_generator(f!,x0,c,θ,u_example,tswitch)
     for i in 1:n_θ
         dual_θ[i] = Dual{ParSen}(θ[i], self_sen[i,:]...)
     end
-    dual_θ= LArray{syms_θ}(dual_θ)
+    dual_θ= SLArray{Tuple{6},1,syms_θ,eltype(dual_θ)}(dual_θ)
     #input parameters
     n_u = length(u_example)
     parameters = Parameters(c, dual_θ, u_example, f!)
+    println("a")
+    println(parameters)
+    println("a")
     #state 
     n_dual_x = length(x0)
     n_x = n_dual_x +(div(n_θ*(n_θ +1),2))
