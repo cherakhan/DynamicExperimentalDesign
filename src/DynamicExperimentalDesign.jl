@@ -1,9 +1,9 @@
-using OrdinaryDiffEq
-using ForwardDiff: Dual
-using StaticArrays
+module DynamicExperimentalDesign
 using LabelledArrays
+using StaticArrays
+using ForwardDiff: Dual
 using LinearAlgebra
-using Plots
+using OrdinaryDiffEq
 using NLopt
 @inline function triangular_index(linear_index,square_size)
     for col_length in 1:square_size
@@ -93,5 +93,6 @@ function objective_generator(f!,x0,c,θ,u_example,tswitch)
         cbs = CallbackSet(cb)
         sol_ini_val = solve(ini_val_prob,Tsit5(), callback = cbs, tstops = tswitch,save_everystep=false)
     end
+end
 end
 
