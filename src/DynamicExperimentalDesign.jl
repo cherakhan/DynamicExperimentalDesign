@@ -91,7 +91,7 @@ function objective_generator(f!,x0,c,θ,u_example,tswitch)
         condition = condition_generator(tswitch_view,input_view)
         cb = DiscreteCallback(condition, affect,save_positions = (false,false))
         cbs = CallbackSet(cb)
-        sol_ini_val = solve(ini_val_prob,Tsit5(), callback = cbs, tstops = tswitch,save_everystep=false)
+        sol_ini_val = solve(ini_val_prob,Tsit5(), callback = cbs, tstops = tswitch,save_everystep=true)
     end
 end
 end
