@@ -1,4 +1,5 @@
 module DynamicExperimentalDesign
+using LinearAlgebra
 using LabelledArrays
 using StaticArrays
 using ForwardDiff: Dual
@@ -65,15 +66,18 @@ function _unknown_parameters_dual(θ,::Val{n_θ}) where {n_θ}
     for i in 1:n_θ
         dual_θ[i] = Dual{ParSen}(θ[i], self_sen[i,:]...)
     end
-    dual_θ = SLArray{Tuple{6},1,syms_θ,eltype(dual_θ)}(dual_θ)
+    dual_θ = SLArray{Tuple{7},1,syms_θ,eltype(dual_θ)}(dual_θ)
     return dual_θ
 end
 unknown_parameters_dual(θ) = _unknown_parameters_dual(θ,Val(length(θ)))
 function objective_generator(f!,x0,c,θ,u_example,tswitch)
     #time
+    x0 = copy(x0)
+    n_x = length(x0)
     t0 = tswitch[1]
     te = tswitch[end]
     #unknown parameters
+    n_θ = length(θ)
     dual_θ = unknown_parameters_dual(θ)
     #input parameters
     #n_u::Int = length(u_example)
@@ -81,7 +85,7 @@ function objective_generator(f!,x0,c,θ,u_example,tswitch)
     # parameter object
     parameters = Parameters(c, dual_θ, u_example, f!)
     #state 
-    dual_x0 = state_dual_and_FIM(x0,length(θ))  
+    dual_x0 = state_dual_and_FIM(x0,n_θ)  
     return function vector_objective(vector_inputs,grad)
         matrix_inputs = reshape(vector_inputs,:,n_u)
         parameters.u[:] .= @view matrix_inputs[1,:]
@@ -91,8 +95,51 @@ function objective_generator(f!,x0,c,θ,u_example,tswitch)
         condition = condition_generator(tswitch_view,input_view)
         cb = DiscreteCallback(condition, affect,save_positions = (false,false))
         cbs = CallbackSet(cb)
-        sol_ini_val = solve(ini_val_prob,Tsit5(), callback = cbs, tstops = tswitch,save_everystep=true)
+        sol_ini_val = solve(ini_val_prob,Tsit5(), callback = cbs, tstops = tswitch,saveat=[te],dense=false)
+        if any((s.retcode != :Success for s in sol_ini_val))
+            D = -Inf
+            return D
+        end
+        FIM = zeros(n_θ,n_θ)
+        for k in 1:length(sol_ini_val.u[end][n_x+1:end])
+            i,j = triangular_index(k,n_θ)
+            FIM[i,j] = sol_ini_val.u[end][n_x+k].value
+            FIM[j,i] = sol_ini_val.u[end][n_x+k].value
+        end
+        D = det(FIM)
+        if D < 0
+            println(D)
+        end
+        return D
+    end
+end
+
+function plot_generator(f!,x0,c,θ,u_example,tswitch)
+    #time
+    x0 = copy(x0)
+    n_x = length(x0)
+    t0 = tswitch[1]
+    te = tswitch[end]
+    #unknown parameters
+    n_θ = length(θ)
+    dual_θ = unknown_parameters_dual(θ)
+    #input parameters
+    #n_u::Int = length(u_example)
+    n_u = length(u_example)
+    # parameter object
+    parameters = Parameters(c, dual_θ, u_example, f!)
+    #state 
+    dual_x0 = state_dual_and_FIM(x0,n_θ)  
+    return function plotter(vector_inputs,grad)
+        matrix_inputs = reshape(vector_inputs,:,n_u)
+        parameters.u[:] .= @view matrix_inputs[1,:]
+        ini_val_prob = ODEProblem(dynamic_system!, dual_x0, (t0, te), parameters)
+        tswitch_view = @view tswitch[2:end-1]
+        input_view = @view matrix_inputs[2:end,:]
+        condition = condition_generator(tswitch_view,input_view)
+        cb = DiscreteCallback(condition, affect,save_positions = (false,false))
+        cbs = CallbackSet(cb)
+        sol_ini_val = solve(ini_val_prob,Tsit5(), tstops = tswitch,callback = cbs)
     end
 end
 end
-
