@@ -44,6 +44,83 @@ sol = obj(zeros((length(tswitch)-1)*length(u_initial)),[]);
 
 opt = Opt(:GN_ESCH, (length(tswitch)-1)*length(u_initial));
 max_objective!(opt, obj);
+maxeval!(opt,1000000);
+
+lower_bound = zeros((length(tswitch)-1)*length(u_initial));
+lower_bounds!(opt, lower_bound);
+
+upper_bound_Q = ones((length(tswitch)-1))*10.0/3600.0/1000.0;  #l/h
+upper_bound_O2 = ones((length(tswitch)-1))*10.0;
+upper_bound_CO2 = ones((length(tswitch)-1))*10.0;
+upper_bound = vcat(upper_bound_Q,upper_bound_O2,upper_bound_CO2);
+upper_bounds!(opt, upper_bound);
+
+(max_obj,max_u,ret) = NLopt.optimize(opt,lower_bound)
+matrix_inputs = reshape(max_u,:,3)
+
+plotter = DynamicExperimentalDesign.plot_generator(mass_balance!,x0,c,θ,u_initial,tswitch);
+sol_ini_val = plotter(reshape(max_u,:,3),[]);
+time_plot = sol_ini_val.t
+O2_plot = zeros(length(sol_ini_val.t));
+CO2_plot = zeros(length(sol_ini_val.t));
+for k in 1:length(sol_ini_val.t)
+    O2_plot[k] = sol_ini_val.u[k][1].value
+    CO2_plot[k] = sol_ini_val.u[k][2].value
+end
+plot(time_plot/3600,O2_plot);
+plot!(time_plot/3600,CO2_plot)
+
+
+function input_plotter_help(t,matrix_inputs,tswitch)
+    for k in 1:length(tswitch)
+        if t < tswitch[k]
+            return matrix_inputs[k-1,:]
+        end
+        if t == tswitch[end]
+            return matrix_inputs[end,:]
+        end
+    end
+end
+function input_plotter(t_plot,matrix_inputs,tswitch)
+    input = zeros(length(t_plot),3)
+    for k in 1:length(t_plot)
+        input[k,:] = input_plotter_help(t_plot[k],matrix_inputs,tswitch)
+    end
+    return input
+end
+t_plot = 0:1:3600*24
+input = input_plotter(t,matrix_inputs,tswitch)
+t_plot_h = t_plot/3600
+input_resize = copy(input)
+input_resize[:,1] = input_resize[:,1]/maximum(input[:,1])
+input_resize[:,2] = input_resize[:,2]/maximum(input[:,2])
+input_resize[:,3] = input_resize[:,3]/maximum(input[:,3])
+plot(t_plot_h,input_resize)
+
+
+
+
+
+
+
+
+
+
+using JLD2
+blah = @load "VarCoVar.jld2" VarCoVar
+VarCoVar = eval(blah[1])
+theta = [i for i in θ.__x.data]
+
+using LinearAlgebra
+using Distributions
+using Random
+
+θ_dist = MvNormal(theta, VarCoVar)
+rand(θ_dist )
+obj = DynamicExperimentalDesign.bay_objective_generator(mass_balance!,x0,c,θ_dist,u_initial,tswitch)
+sol = obj(zeros((length(tswitch)-1)*length(u_initial)),[]);
+opt = Opt(:GN_ESCH, (length(tswitch)-1)*length(u_initial));
+max_objective!(opt, obj);
 maxeval!(opt,10000);
 
 lower_bound = zeros((length(tswitch)-1)*length(u_initial));
@@ -57,7 +134,7 @@ upper_bounds!(opt, upper_bound);
 
 (max_obj,max_u,ret) = NLopt.optimize(opt,lower_bound)
 matrix_inputs = reshape(max_u,:,3)
-max_obj
+
 plotter = DynamicExperimentalDesign.plot_generator(mass_balance!,x0,c,θ,u_initial,tswitch);
 sol_ini_val = plotter(reshape(max_u,:,3),[]);
 time_plot = sol_ini_val.t
@@ -69,6 +146,55 @@ for k in 1:length(sol_ini_val.t)
 end
 plot(time_plot/3600,O2_plot);
 plot!(time_plot/3600,CO2_plot)
+
+
+
+
+
+
+
+opt_loc = Opt(:LN_SBPLX, (length(tswitch)-1)*length(u_initial));
+max_objective!(opt_loc, obj);
+maxeval!(opt_loc,100000);
+
+lower_bounds!(opt_loc , lower_bound);
+upper_bounds!(opt_loc , upper_bound);
+
+(max_obj_loc,max_u_loc,ret) = NLopt.optimize(opt_loc,max_u)
+matrix_inputs_loc = reshape(max_u_loc,:,3)
+
+plotter = DynamicExperimentalDesign.plot_generator(mass_balance!,x0,c,θ,u_initial,tswitch);
+sol_ini_val = plotter(reshape(max_u_loc,:,3),[]);
+time_plot = sol_ini_val.t
+O2_plot = zeros(length(sol_ini_val.t));
+CO2_plot = zeros(length(sol_ini_val.t));
+for k in 1:length(sol_ini_val.t)
+    O2_plot[k] = sol_ini_val.u[k][1].value
+    CO2_plot[k] = sol_ini_val.u[k][2].value
+end
+plot(time_plot/3600,O2_plot);
+plot!(time_plot/3600,CO2_plot)
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 plotter = DynamicExperimentalDesign.plot_generator(mass_balance!,x0,c,θ,u_initial,tswitch);
