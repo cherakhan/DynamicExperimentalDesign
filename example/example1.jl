@@ -20,7 +20,6 @@ CO2atm = 0.0041;CO20 = CO2atm*Patm/(R*T)
 x0 =  LArray{(:O2,:CO2)}([O20,CO20]) 
 Vj = 5.0/1000; Mp = 4.0
 c = SLArray{Tuple{2},1,(:Vj, :Mp),Float64}([Vj, Mp]) 
-
 θ = @SArray [  1.4925677111223096e-8/(exp(80.2*1000.0*(1/Tref - 1/T)/R))
 0.4387101798598021
 29.13035594269086
